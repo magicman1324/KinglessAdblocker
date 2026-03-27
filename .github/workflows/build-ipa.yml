@@ -1,145 +1,52 @@
-name: Build iOS IPA
+name: Build KinglessAdblocker IPA
 
+# 修复Bug 1：同时兼容 master 和 main 分支，并且增加手动运行按钮
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # 允许手动触发
+    branches: [ "master", "main" ]
+  workflow_dispatch: 
 
 jobs:
   build:
+    name: Build and Package IPA
+    # 强制锁定微软最新版的云端 Mac 服务器！
     runs-on: macos-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      # 1. 检出代码 (必须要有这一步，否则云端Mac是空的，直接报6秒红叉！)
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup Xcodegen
-      run: |
-        brew install xcodegen
-        xcodegen --version
+      # 2. 安装工程生成器 Xcodegen
+      - name: ⚙️ Install Xcodegen
+        run: brew install xcodegen
 
-    - name: Generate Xcode project
-      run: |
-        xcodegen generate
-        ls -la KinglessAdblocker.xcodeproj/
+      # 3. 根据 project.yml 动态生成 Xcode 工程
+      - name: 🏗️ Generate Xcode Project
+        run: xcodegen generate
 
-    - name: Show generated project
-      run: |
-        echo "Generated project structure:"
-        find KinglessAdblocker.xcodeproj -name "*.pbxproj" | head -5
+      # 4. 暴力免签编译（极其核心的编译指令，剥离苹果签名校验）
+      - name: 🔨 Build App (No Sign)
+        run: |
+          xcodebuild clean build \
+            -project KinglessAdblocker.xcodeproj \
+            -scheme KinglessAdblocker \
+            -sdk iphoneos \
+            -configuration Release \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CONFIGURATION_BUILD_DIR=build_output
 
-    - name: Build iOS App
-      run: |
-        set -o pipefail
+      # 5. 组装 Payload 文件夹并压缩成巨魔专属的 .ipa 格式
+      - name: 📦 Package IPA
+        run: |
+          mkdir -p Payload
+          mv build_output/KinglessAdblocker.app Payload/
+          zip -r KinglessAdblocker.ipa Payload
 
-        # 编译主应用
-        xcodebuild clean \
-          -project KinglessAdblocker.xcodeproj \
-          -scheme KinglessAdblocker \
-          -configuration Release \
-          -destination "generic/platform=iOS" \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO \
-          DEVELOPMENT_TEAM="" \
-          PROVISIONING_PROFILE_SPECIFIER="" \
-          | xcpretty
-
-        # 编译网络扩展
-        xcodebuild clean \
-          -project KinglessAdblocker.xcodeproj \
-          -scheme KinglessAdblockerExtension \
-          -configuration Release \
-          -destination "generic/platform=iOS" \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO \
-          DEVELOPMENT_TEAM="" \
-          PROVISIONING_PROFILE_SPECIFIER="" \
-          | xcpretty
-
-    - name: Find build products
-      run: |
-        echo "Build products in DerivedData:"
-        find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d | head -10
-        find ~/Library/Developer/Xcode/DerivedData -name "*.appex" -type d | head -10
-
-    - name: Create Payload directory
-      run: |
-        # 清理旧文件
-        rm -rf Payload
-        rm -f KinglessAdblocker.ipa
-
-        # 创建 Payload 目录
-        mkdir -p Payload
-
-        # 查找主应用
-        APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "KinglessAdblocker.app" -type d | head -1)
-
-        if [ -z "$APP_PATH" ]; then
-          echo "Error: Could not find KinglessAdblocker.app"
-          exit 1
-        fi
-
-        echo "Found app at: $APP_PATH"
-
-        # 复制主应用到 Payload
-        cp -R "$APP_PATH" Payload/
-
-        # 查找网络扩展
-        EXTENSION_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "KinglessAdblockerExtension.appex" -type d | head -1)
-
-        if [ -n "$EXTENSION_PATH" ]; then
-          echo "Found extension at: $EXTENSION_PATH"
-
-          # 确保扩展目录存在
-          mkdir -p "Payload/KinglessAdblocker.app/PlugIns"
-
-          # 复制扩展
-          cp -R "$EXTENSION_PATH" "Payload/KinglessAdblocker.app/PlugIns/"
-
-          # 验证文件结构
-          echo "Payload structure:"
-          find Payload -type f -name "*.plist" | head -10
-        else
-          echo "Warning: Could not find extension"
-        fi
-
-    - name: Create IPA package
-      run: |
-        # 验证 Payload 内容
-        echo "Payload directory contents:"
-        ls -la Payload/
-
-        if [ ! -d "Payload/KinglessAdblocker.app" ]; then
-          echo "Error: Payload/KinglessAdblocker.app not found"
-          exit 1
-        fi
-
-        # 创建 IPA 文件
-        zip -r KinglessAdblocker.ipa Payload
-
-        # 验证 IPA 文件
-        echo "IPA file created:"
-        ls -lh KinglessAdblocker.ipa
-
-        # 检查 IPA 内容
-        unzip -l KinglessAdblocker.ipa | head -20
-
-    - name: Upload IPA artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: KinglessAdblocker-IPA
-        path: KinglessAdblocker.ipa
-        retention-days: 30
-
-    - name: Upload build logs
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: build-logs
-        path: |
-          ~/Library/Developer/Xcode/DerivedData
-        retention-days: 7
+      # 6. 把 .ipa 文件作为战利品传到前台供你下载
+      - name: 📤 Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KinglessAdblocker-IPA
+          path: KinglessAdblocker.ipa
