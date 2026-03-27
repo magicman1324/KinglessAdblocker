@@ -20,7 +20,12 @@ class ViewController: UIViewController {
         button.backgroundColor = .systemBlue
         button.setTitleColor(.white, for: .normal)
         button.layer.cornerRadius = 10
-        button.contentEdgeInsets = UIEdgeInsets(top: 12, left: 24, bottom: 12, right: 24)
+
+        // 现代方式设置内边距
+        var configuration = UIButton.Configuration.filled()
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 24, bottom: 12, trailing: 24)
+        button.configuration = configuration
+
         return button
     }()
 
@@ -127,23 +132,11 @@ class ViewController: UIViewController {
     }
 
     private func configureAndStartDNSProxy() {
-        // 创建 DNS 代理配置
-        let proxySettings = NEDNSProxySettings()
+        // 对于 DNS 代理扩展，我们只需要启用管理器即可
+        // 扩展的配置在 Info.plist 中定义，不需要额外的设置
 
-        // 注意：根据苹果文档，需要配置服务器地址
-        // 这里我们使用一个虚拟的服务器地址
-        let serverAddresses = ["127.0.0.1"]
-        proxySettings.serverAddresses = serverAddresses
-
-        // 创建 DNS 代理提供者配置
-        let providerConfiguration = NEDNSProxyProviderConfiguration()
-        providerConfiguration.providerBundleIdentifier = "com.kingless.adblocker.extension"
-        providerConfiguration.serverAddress = "127.0.0.1"
-
-        // 配置 DNS 代理管理器
         let manager = NEDNSProxyManager.shared()
         manager.localizedDescription = "Kingless Adblocker DNS Proxy"
-        manager.providerConfiguration = providerConfiguration
 
         // 启用 DNS 代理
         manager.isEnabled = true
@@ -151,11 +144,38 @@ class ViewController: UIViewController {
             DispatchQueue.main.async {
                 if let error = saveError {
                     self.showError("启动失败: \(error.localizedDescription)")
+                    // 如果失败，尝试重新加载并重试一次
+                    self.retryDNSProxyConfiguration()
                 } else {
                     self.updateStatus()
+                    self.loadingIndicator.stopAnimating()
+                    self.toggleButton.isEnabled = true
                 }
-                self.loadingIndicator.stopAnimating()
-                self.toggleButton.isEnabled = true
+            }
+        }
+    }
+
+    private func retryDNSProxyConfiguration() {
+        // 重试配置
+        NEDNSProxyManager.shared().loadFromPreferences { error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self.showError("重试失败: \(error.localizedDescription)")
+                } else {
+                    let manager = NEDNSProxyManager.shared()
+                    manager.isEnabled = true
+                    manager.saveToPreferences { saveError in
+                        DispatchQueue.main.async {
+                            if let error = saveError {
+                                self.showError("最终启动失败: \(error.localizedDescription)")
+                            } else {
+                                self.updateStatus()
+                            }
+                            self.loadingIndicator.stopAnimating()
+                            self.toggleButton.isEnabled = true
+                        }
+                    }
+                }
             }
         }
     }
