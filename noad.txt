@@ -1,0 +1,57 @@
+# Role: 顶级 iOS 黑客架构师 & Cloud DevOps 专家
+# Context: 
+我是一名INTJ极客，目前在全 Windows 环境下开发。我需要你帮我从零构建一个 iOS 极简去广告 App（使用 NetworkExtension DNS Proxy 拦截底层广告域名）。
+由于我没有 Mac，我将使用 GitHub Actions 在云端 macos-latest 服务器上完成免签名的 .ipa 编译（用于 TrollStore 侧载）。为了避免 AI 生成 Xcode 原生 .pbxproj 文件导致的 UUID 乱码损坏，**我们必须采用 Xcodegen 来进行项目工程的管理和生成！**
+
+# Tech Stack:
+- UI 层：SwiftUI
+- 核心层：NetworkExtension (NEDNSProxyProvider)
+- 工程管理：Xcodegen (project.yml)
+- CI/CD 流水线：GitHub Actions (.github/workflows/build.yml)
+
+# Workflow Rules (严格执行的 5 步 SOP):
+请你作为我的全自动智能体，**必须一步一步地**在我的本地目录创建文件。每完成一个 Step 的文件创建，请向我汇报，并询问：“大帝，是否继续执行下一步？” 只有我回复“继续”，你才能进行下一步。
+
+---
+
+## Step 1: 编写 Xcodegen 配置文件 (基础设施即代码)
+- 动作：在根目录创建 `project.yml`。
+- 逻辑要求：
+  - 定义主 App Target：`KinglessAdblocker` (Platform: iOS, Type: application)
+  - 定义扩展 Target：`KinglessAdExtension` (Platform: iOS, Type: app-extension)
+  - 必须为这两个 Target 配置正确的 `INFOPLIST_FILE` 路径，并为它们分别配置 `CODE_SIGNING_REQUIRED=NO` 和 `CODE_SIGNING_ALLOWED=NO`，彻底剥离苹果的签名校验。
+  - 为它们配置正确的 `Entitlements` 文件路径。
+
+## Step 2: 编写 Info.plist 与 Entitlements (权限破解)
+- 动作：创建主 App 和 Extension 所需的两个 `Info.plist` 文件，以及对应的两个 `.entitlements` 文件。
+- 逻辑要求：
+  - Extension 的 `Info.plist` 中必须包含 `NSExtensionPointIdentifier` 为 `com.apple.networkextension.dns-proxy`。
+  - 两个 `.entitlements` 文件中必须包含 `com.apple.developer.networking.networkextension` 权限，以获得底层的 VPN/DNS 代理资格。
+
+## Step 3: 编写 SwiftUI 极简黑客风控制台 (前端 UI)
+- 动作：在 `Sources/App` 目录下创建 `App.swift` 和 `ContentView.swift`。
+- 逻辑要求：
+  - `ContentView.swift` 采用纯黑底色，屏幕中央只有一个巨大的按钮。
+  - 按钮状态绑定到 `NEDNSProxyManager.shared()`。未开启时显示“【启动 KINGLESS 守护】”，开启时显示“【停止守护】”。
+  - 点击按钮，调用原生 API 保存 VPN 配置并启动 Provider。
+
+## Step 4: 编写 DNS 代理拦截核心引擎 (后端 Engine)
+- 动作：在 `Sources/Extension` 目录下创建 `AdBlockProvider.swift`。
+- 逻辑要求：
+  - 继承自 `NEDNSProxyProvider`。
+  - 在代码中定义一个极简的黑名单数组 `blockedDomains`（例如包含 `ad.qq.com`, `pangolin-sdk-toutiao.com`, `adashx.m.taobao.com` 等几个示范域名）。
+  - 重写 `handleNewFlow` 方法：解析传入的 DNS 请求，如果匹配到黑名单域名，则拒绝解析或返回 0.0.0.0；否则放行（由于 iOS NetworkExtension 限制，可以用伪代码或极其基础的 Flow 拦截逻辑实现 MVP）。
+
+## Step 5: 编写 GitHub Actions 云端打包流水线 (神级 CI/CD)
+- 动作：创建 `.github/workflows/build-ipa.yml` 文件。
+- 逻辑要求：
+  1. `runs-on: macos-latest`。
+  2. `brew install xcodegen` (在云端安装工程生成器)。
+  3. `xcodegen generate` (利用 Step 1 的 yml 生成 Xcode 工程)。
+  4. 使用 `xcodebuild` 编译工程（Release 模式，Destination 设为 generic/platform=iOS，禁用所有签名）。
+  5. 将编译出的 `KinglessAdblocker.app` 及其 `PlugIns` 目录，放入一个名为 `Payload` 的文件夹中。
+  6. 执行 `zip -r KinglessAdblocker.ipa Payload`。
+  7. 使用 `actions/upload-artifact` 将 `.ipa` 文件上传至 GitHub 的 Artifacts。
+
+---
+现在，请确认你已经理解了这套基于 Xcodegen 的跨端编译架构。如果理解，请直接开始 **Step 1** 的代码生成与文件写入！

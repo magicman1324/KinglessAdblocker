@@ -1,0 +1,64 @@
+# Xcode
+.DS_Store
+*.xcworkspace
+xcuserdata
+*.xccheckout
+*.xcuserstate
+*.xcsettings
+*.xcscheme
+DerivedData
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Build artifacts
+build/
+*.ipa
+Payload/
+KinglessAdblocker.xcodeproj/
+
+# Swift Package Manager
+.swiftpm
+.build/
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# Carthage
+Carthage/
+Cartfile.resolved
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Code coverage
+*.gcda
+*.gcno
+
+# Editor files
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+
+# Credentials
+.env
+*.p12
+*.mobileprovision
+
+# Generated files
+*.generated.swift
+
+# Local configuration
+settings.local.json
+*.local.*

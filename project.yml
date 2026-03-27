@@ -1,0 +1,79 @@
+name: KinglessAdblocker
+options:
+  deploymentTarget:
+    iOS: 15.0
+  xcodeVersion: "15.0"
+  groupSortPosition: top
+  createIntermediateGroups: true
+  defaultConfig: Release
+
+configs:
+  Debug: debug
+  Release: release
+
+targets:
+  KinglessAdblocker:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/App
+        excludes:
+          - "**/*Tests.swift"
+          - "**/*Spec.swift"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kingless.adblocker
+        PRODUCT_NAME: KinglessAdblocker
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_IDENTITY: ""
+        ENABLE_BITCODE: NO
+        TARGETED_DEVICE_FAMILY: "1,2" # iPhone & iPad
+        SUPPORTS_MACCATALYST: NO
+        SDKROOT: iphoneos
+      configs:
+        Debug:
+          GCC_OPTIMIZATION_LEVEL: 0
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+        Release:
+          GCC_OPTIMIZATION_LEVEL: s
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
+
+  KinglessAdblockerExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Sources/Extension
+        excludes:
+          - "**/*Tests.swift"
+          - "**/*Spec.swift"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kingless.adblocker.extension
+        PRODUCT_NAME: KinglessAdblockerExtension
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_IDENTITY: ""
+        ENABLE_BITCODE: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SDKROOT: iphoneos
+    dependencies:
+      - target: KinglessAdblocker
+        link: false # Extensions cannot link to the containing app
+
+schemes:
+  KinglessAdblocker:
+    build:
+      targets:
+        KinglessAdblocker: all
+        KinglessAdblockerExtension: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
