@@ -37,11 +37,34 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CONFIGURATION_BUILD_DIR=build_output
 
+      # 同时编译 DNS 代理扩展
+      - name: 🔨 Build Extension (No Sign)
+        run: |
+          xcodebuild clean build \
+            -project KinglessAdblocker.xcodeproj \
+            -scheme KinglessAdblockerExtension \
+            -sdk iphoneos \
+            -configuration Release \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CONFIGURATION_BUILD_DIR=build_output
+
       # 5. 组装 Payload 文件夹并压缩成巨魔专属的 .ipa 格式
       - name: 📦 Package IPA
         run: |
           mkdir -p Payload
+
+          # 复制主应用
           mv build_output/KinglessAdblocker.app Payload/
+
+          # 复制 DNS 代理扩展
+          mkdir -p "Payload/KinglessAdblocker.app/PlugIns"
+          mv build_output/KinglessAdblockerExtension.appex "Payload/KinglessAdblocker.app/PlugIns/"
+
+          # 验证文件结构
+          echo "Payload 结构:"
+          find Payload -type f -name "*.plist" | head -5
+
           zip -r KinglessAdblocker.ipa Payload
 
       # 6. 把 .ipa 文件作为战利品传到前台供你下载

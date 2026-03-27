@@ -40,7 +40,7 @@ targets:
           SWIFT_OPTIMIZATION_LEVEL: "-O"
 
   KinglessAdblockerExtension:
-    type: app-extension
+    type: dns-proxy-extension
     platform: iOS
     sources:
       - path: Sources/Extension
@@ -57,9 +57,15 @@ targets:
         ENABLE_BITCODE: NO
         TARGETED_DEVICE_FAMILY: "1,2"
         SDKROOT: iphoneos
+        NE_FILTER_DATA_PROVIDER_DESIGNATED_REQUIREMENT: ""
+        NE_FILTER_DATA_PROVIDER_BUNDLE_IDENTIFIER: com.kingless.adblocker.extension
     dependencies:
       - target: KinglessAdblocker
         link: false # Extensions cannot link to the containing app
+      - framework: NetworkExtension.framework
+        embed: false
+      - framework: Foundation.framework
+        embed: false
 
 schemes:
   KinglessAdblocker:

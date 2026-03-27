@@ -23,9 +23,9 @@
     <key>NSExtension</key>
     <dict>
         <key>NSExtensionPointIdentifier</key>
-        <string>com.apple.networkextension-filter</string>
+        <string>com.apple.networkextension-dns-proxy</string>
         <key>NSExtensionPrincipalClass</key>
-        <string>$(PRODUCT_MODULE_NAME).FilterPacketProvider</string>
+        <string>$(PRODUCT_MODULE_NAME).DNSProxyProvider</string>
     </dict>
 </dict>
 </plist>

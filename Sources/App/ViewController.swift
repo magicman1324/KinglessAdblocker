@@ -92,7 +92,8 @@ class ViewController: UIViewController {
         loadingIndicator.startAnimating()
         toggleButton.isEnabled = false
 
-        NEFilterManager.shared().loadFromPreferences { loadError in
+        // 使用 NEDNSProxyManager 而不是 NEFilterManager
+        NEDNSProxyManager.shared().loadFromPreferences { loadError in
             DispatchQueue.main.async {
                 if let error = loadError {
                     self.showError("加载配置失败: \(error.localizedDescription)")
@@ -101,12 +102,12 @@ class ViewController: UIViewController {
                     return
                 }
 
-                let isEnabled = NEFilterManager.shared().isEnabled
+                let isEnabled = NEDNSProxyManager.shared().isEnabled
 
                 if isEnabled {
-                    // 停止过滤器
-                    NEFilterManager.shared().isEnabled = false
-                    NEFilterManager.shared().saveToPreferences { saveError in
+                    // 停止 DNS 代理
+                    NEDNSProxyManager.shared().isEnabled = false
+                    NEDNSProxyManager.shared().saveToPreferences { saveError in
                         DispatchQueue.main.async {
                             if let error = saveError {
                                 self.showError("停止失败: \(error.localizedDescription)")
@@ -118,41 +119,59 @@ class ViewController: UIViewController {
                         }
                     }
                 } else {
-                    // 启动过滤器
-                    let filterSettings = NEFilterSettings(rules: [])
-                    NEFilterManager.shared().filterSettings = filterSettings
-                    NEFilterManager.shared().localizedDescription = "Kingless Adblocker"
-                    NEFilterManager.shared().providerConfiguration = NEFilterProviderConfiguration()
-
-                    NEFilterManager.shared().isEnabled = true
-                    NEFilterManager.shared().saveToPreferences { saveError in
-                        DispatchQueue.main.async {
-                            if let error = saveError {
-                                self.showError("启动失败: \(error.localizedDescription)")
-                            } else {
-                                self.updateStatus()
-                            }
-                            self.loadingIndicator.stopAnimating()
-                            self.toggleButton.isEnabled = true
-                        }
-                    }
+                    // 启动 DNS 代理
+                    self.configureAndStartDNSProxy()
                 }
             }
         }
     }
 
-    private func updateStatus() {
-        NEFilterManager.shared().loadFromPreferences { error in
+    private func configureAndStartDNSProxy() {
+        // 创建 DNS 代理配置
+        let proxySettings = NEDNSProxySettings()
+
+        // 注意：根据苹果文档，需要配置服务器地址
+        // 这里我们使用一个虚拟的服务器地址
+        let serverAddresses = ["127.0.0.1"]
+        proxySettings.serverAddresses = serverAddresses
+
+        // 创建 DNS 代理提供者配置
+        let providerConfiguration = NEDNSProxyProviderConfiguration()
+        providerConfiguration.providerBundleIdentifier = "com.kingless.adblocker.extension"
+        providerConfiguration.serverAddress = "127.0.0.1"
+
+        // 配置 DNS 代理管理器
+        let manager = NEDNSProxyManager.shared()
+        manager.localizedDescription = "Kingless Adblocker DNS Proxy"
+        manager.providerConfiguration = providerConfiguration
+
+        // 启用 DNS 代理
+        manager.isEnabled = true
+        manager.saveToPreferences { saveError in
             DispatchQueue.main.async {
-                let isEnabled = NEFilterManager.shared().isEnabled
+                if let error = saveError {
+                    self.showError("启动失败: \(error.localizedDescription)")
+                } else {
+                    self.updateStatus()
+                }
+                self.loadingIndicator.stopAnimating()
+                self.toggleButton.isEnabled = true
+            }
+        }
+    }
+
+    private func updateStatus() {
+        NEDNSProxyManager.shared().loadFromPreferences { error in
+            DispatchQueue.main.async {
+                let isEnabled = NEDNSProxyManager.shared().isEnabled
 
                 if isEnabled {
-                    self.statusLabel.text = "✅ 广告拦截已启用\n\n正在拦截全网广告，保护您的隐私"
+                    self.statusLabel.text = "✅ DNS 广告拦截已启用\n\n正在拦截全网广告域名，保护您的隐私"
                     self.statusLabel.textColor = .systemGreen
                     self.toggleButton.setTitle("停止广告拦截", for: .normal)
                     self.toggleButton.backgroundColor = .systemRed
                 } else {
-                    self.statusLabel.text = "⚠️ 广告拦截未启用\n\n点击下方按钮启用广告拦截功能"
+                    self.statusLabel.text = "⚠️ DNS 广告拦截未启用\n\n点击下方按钮启用广告拦截功能"
                     self.statusLabel.textColor = .systemOrange
                     self.toggleButton.setTitle("启动广告拦截", for: .normal)
                     self.toggleButton.backgroundColor = .systemBlue
